@@ -1,0 +1,17 @@
+sample_id,subject_id,session_id,finger_id,scenario,split,ground_truth,image_path,device,spoof_type,material
+S001,SUBJ_01,SES_01,right_index,indoor,calibration,live,datasets/synthetic_data/S001.jpg,Pixel_7,none,human_skin
+S002,SUBJ_01,SES_01,right_thumb,indoor,calibration,live,datasets/synthetic_data/S002.jpg,Pixel_7,none,human_skin
+S011,SUBJ_02,SES_01,right_index,indoor,calibration,spoof,datasets/synthetic_data/S011.jpg,Pixel_7,printed_photo,matte_paper
+S012,SUBJ_02,SES_01,right_thumb,indoor,calibration,spoof,datasets/synthetic_data/S012.jpg,Pixel_7,silicone_overlay,silicone
+S003,SUBJ_03,SES_01,right_index,sunlight,test,live,datasets/synthetic_data/S003.jpg,Samsung_A53,none,human_skin
+S004,SUBJ_03,SES_01,right_thumb,sunlight,test,live,datasets/synthetic_data/S004.jpg,Samsung_A53,none,human_skin
+S005,SUBJ_04,SES_01,right_index,shadow,test,live,datasets/synthetic_data/S005.jpg,iPhone_15_Pro,none,human_skin
+S006,SUBJ_04,SES_01,right_thumb,shadow,test,live,datasets/synthetic_data/S006.jpg,iPhone_15_Pro,none,human_skin
+S007,SUBJ_05,SES_01,right_index,indoor,test,live,datasets/synthetic_data/S007.jpg,OPPO_A18,none,human_skin
+S008,SUBJ_05,SES_01,right_thumb,indoor,test,live,datasets/synthetic_data/S008.jpg,OPPO_A18,none,human_skin
+S013,SUBJ_06,SES_01,right_index,sunlight,test,spoof,datasets/synthetic_data/S013.jpg,Samsung_A53,printed_photo,glossy_paper
+S014,SUBJ_06,SES_01,right_thumb,sunlight,test,spoof,datasets/synthetic_data/S014.jpg,Samsung_A53,silicone_overlay,dragon_skin
+S015,SUBJ_07,SES_01,right_index,shadow,test,spoof,datasets/synthetic_data/S015.jpg,iPhone_15_Pro,gelatin_pad,gelatin
+S016,SUBJ_07,SES_01,right_thumb,shadow,test,spoof,datasets/synthetic_data/S016.jpg,iPhone_15_Pro,replay_screen,oled_display
+S017,SUBJ_08,SES_01,right_index,indoor,test,spoof,datasets/synthetic_data/S017.jpg,OPPO_A18,latex_finger,latex
+S018,SUBJ_08,SES_01,right_thumb,indoor,test,spoof,datasets/synthetic_data/S018.jpg,OPPO_A18,printed_photo,matte_paper

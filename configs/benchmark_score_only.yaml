@@ -1,0 +1,42 @@
+# Score-Only Benchmark Configuration
+# Evaluates already-generated model scores without rerunning neural networks
+
+benchmark:
+  name: score_only_benchmark
+  dataset_version: single_finger_test_v1
+  task_type: single_finger_authentication
+  random_seed: 42
+  description: "Score-Only Evaluation from CSV files"
+
+data:
+  manifest_path: datasets/manifests/example_manifest.csv
+  calibration_split_name: calibration
+  test_split_name: test
+  check_image_existence: false
+  verify_hashes: false
+  allow_missing_images: true
+
+evaluation:
+  score_direction: higher_is_accept
+  threshold_method: target_far
+  target_far: 0.001
+  manual_threshold: 0.50
+  treat_error_as_reject: false
+
+latency:
+  warmup_runs: 0
+  repetitions: 1
+  thresholds_ms: [1000.0, 2000.0, 5000.0, 7000.0]
+
+models:
+  - name: dualscale_2d_scores
+    version: 1.0.0
+    adapter: score_csv
+    score_csv_path: scores/dualscale.csv
+
+outputs:
+  root: results
+  export_plots: true
+  generate_html: true
+  export_fusion_table: false
+  top_k_hard_cases: 15
