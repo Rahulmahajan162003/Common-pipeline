@@ -61,6 +61,7 @@ class ModelConfig:
     score_csv_path: Optional[str] = None
     device: str = "auto"
     batch_size: int = 1
+    score_direction: Optional[ScoreDirection] = None
     extra_params: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -182,6 +183,14 @@ def parse_config_dict(raw: Dict[str, Any]) -> BenchmarkConfig:
     parsed_models: List[ModelConfig] = []
     if isinstance(models_raw, list):
         for m in models_raw:
+            m_sd_str = m.get("score_direction")
+            m_score_direction = None
+            if m_sd_str:
+                try:
+                    m_score_direction = ScoreDirection(str(m_sd_str).lower().strip())
+                except ValueError:
+                    raise ValueError(f"Invalid model score_direction '{m_sd_str}' for model '{m.get('name')}'. Must be 'higher_is_accept', 'lower_is_accept', or 'higher_is_reject'.")
+
             parsed_models.append(
                 ModelConfig(
                     name=m.get("name", "unknown_model"),
@@ -191,6 +200,7 @@ def parse_config_dict(raw: Dict[str, Any]) -> BenchmarkConfig:
                     score_csv_path=m.get("score_csv_path", m.get("score_csv")),
                     device=m.get("device", "auto"),
                     batch_size=int(m.get("batch_size", 1)),
+                    score_direction=m_score_direction,
                     extra_params=m.get("params", m.get("extra_params", {})),
                 )
             )

@@ -1,0 +1,70 @@
+# YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
+# Master Comprehensive Evaluation of ALL 5 Models:
+# 1. RTK-PAD
+# 2. DualScalePatchNet (DualPatchNet)
+# 3. Model 3D (Surface Curvature / Depth)
+# 4. Flash Liveness (Spectral Reflection)
+# 5. LitMAS (Vision Transformer DeiT + MoE)
+
+benchmark:
+  name: all_5_models_master_evaluation
+  dataset_version: multidevice_pad_v1
+  task_type: single_finger_authentication
+  random_seed: 42
+  description: "Master benchmark of all 5 biometric PAD & liveness models on Multi-Device dataset"
+
+data:
+  manifest_path: datasets/manifests/multidevice_pad_manifest.csv
+  calibration_split_name: calibration
+  test_split_name: test
+  check_image_existence: true
+  verify_hashes: true
+  allow_missing_images: false
+
+evaluation:
+  score_direction: higher_is_accept
+  threshold_method: target_far
+  target_far: 0.01       # Target FAR <= 1.0%
+  target_frr: 0.05       # Target FRR <= 5.0%
+  treat_error_as_reject: false
+  threshold_sweep_steps: 100
+
+latency:
+  warmup_runs: 3
+  repetitions: 1
+  thresholds_ms: [50.0, 100.0, 250.0, 500.0]
+
+models:
+  - name: rtk_pad_model
+    version: 1.0.0
+    adapter: rtk_pad
+    checkpoint_path: D:\rtk_pad_colfispoof_weights.pth
+    device: cpu
+
+  - name: dualpatchnet_model
+    version: 1.0.0
+    adapter: dualscale_2d
+    device: cpu
+
+  - name: model_3d
+    version: 1.0.0
+    adapter: model_3d
+    device: cpu
+
+  - name: flash_liveness_model
+    version: 1.0.0
+    adapter: flash_liveness
+    device: cpu
+
+  - name: litmas_moe_model
+    version: 1.0.0
+    adapter: litmas
+    checkpoint_path: D:\LitMAS-main\LitMAS-main\checkpoints_colfispoof\litmas_colfispoof_best.pth
+    device: cpu
+
+outputs:
+  root: results
+  export_plots: true
+  generate_html: true
+  export_fusion_table: true
+  top_k_hard_cases: 15

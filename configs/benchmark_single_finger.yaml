@@ -33,6 +33,7 @@ models:
   - name: dualscale_2d
     version: 1.0.0
     adapter: dualscale_2d
+    checkpoint_path: checkpoints/dualscale_model.pth
     device: cpu
 
 outputs:

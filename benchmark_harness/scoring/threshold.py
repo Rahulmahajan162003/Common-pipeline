@@ -28,7 +28,7 @@ class ThresholdEngine:
 
         if score_direction == ScoreDirection.HIGHER_IS_ACCEPT:
             return PredictionOutcome.ACCEPT if score >= threshold else PredictionOutcome.REJECT
-        elif score_direction == ScoreDirection.LOWER_IS_ACCEPT:
+        elif score_direction in (ScoreDirection.LOWER_IS_ACCEPT, ScoreDirection.HIGHER_IS_REJECT):
             return PredictionOutcome.ACCEPT if score <= threshold else PredictionOutcome.REJECT
         else:
             raise ValueError(f"Unsupported score direction: {score_direction}")

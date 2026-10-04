@@ -9,6 +9,8 @@ from .score_csv import ScoreCSVAdapter
 from .dualscale_2d import DualScale2DAdapter
 from .model_3d import Model3DAdapter
 from .flash_liveness import FlashLivenessAdapter
+from .rtk_pad import RtkPadAdapter
+from .litmas import LitMasAdapter
 from ..schemas import ScoreDirection
 
 ADAPTER_REGISTRY: Dict[str, Type[BaseModelAdapter]] = {
@@ -17,10 +19,22 @@ ADAPTER_REGISTRY: Dict[str, Type[BaseModelAdapter]] = {
     "dualscale_2d": DualScale2DAdapter,
     "dualscale": DualScale2DAdapter,
     "dual_scale_patchnet": DualScale2DAdapter,
+    "dualpatchnet": DualScale2DAdapter,
+    "dualpatch": DualScale2DAdapter,
     "model_3d": Model3DAdapter,
     "3d": Model3DAdapter,
+    "model3d": Model3DAdapter,
     "flash_liveness": FlashLivenessAdapter,
     "flash": FlashLivenessAdapter,
+    "rtk_pad": RtkPadAdapter,
+    "rtk": RtkPadAdapter,
+    "rtkpad": RtkPadAdapter,
+    "rkt_pad": RtkPadAdapter,
+    "rkt": RtkPadAdapter,
+    "rktpad": RtkPadAdapter,
+    "litmas": LitMasAdapter,
+    "litmas_moe": LitMasAdapter,
+    "lit_mas": LitMasAdapter,
 }
 
 

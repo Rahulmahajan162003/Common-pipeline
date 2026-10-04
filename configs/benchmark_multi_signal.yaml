@@ -29,15 +29,18 @@ latency:
 models:
   - name: dualscale_2d
     version: 1.0.0
-    adapter: dualscale_2d
+    adapter: score_csv
+    score_csv_path: scores/dualscale.csv
 
   - name: model_3d
     version: 1.0.0
-    adapter: model_3d
+    adapter: score_csv
+    score_csv_path: scores/model3d.csv
 
   - name: flash_liveness
     version: 1.0.0
-    adapter: flash_liveness
+    adapter: score_csv
+    score_csv_path: scores/flash_liveness.csv
 
 outputs:
   root: results

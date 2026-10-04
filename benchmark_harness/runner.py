@@ -22,6 +22,7 @@ from .schemas import (
     PredictionOutcome,
     GroundTruthLabel,
     TimingRecord,
+    ValidationError,
 )
 from .config import BenchmarkConfig, ModelConfig
 from .manifest import BenchmarkManifest
@@ -68,6 +69,12 @@ class BenchmarkRunner:
 
             # Check splits
             test_manifest = full_manifest.get_split(self.config.data.test_split_name)
+            if len(test_manifest) == 0:
+                available_splits = list(set(s.split for s in full_manifest.samples))
+                errors.append(ValidationError(
+                    category="EMPTY_TEST_SPLIT",
+                    message=f"Configured test split '{self.config.data.test_split_name}' contains 0 samples in manifest '{self.config.data.manifest_path}'. Available splits: {available_splits}."
+                ))
             calib_manifest = full_manifest.get_split(self.config.data.calibration_split_name)
 
         if self.config.data.calibration_manifest_path and os.path.exists(self.config.data.calibration_manifest_path):
@@ -112,9 +119,15 @@ class BenchmarkRunner:
                 base_image_dir=self.config.data.base_image_dir
             )
             t_split = full_manifest.get_split(self.config.data.test_split_name)
+            if len(t_split) == 0:
+                available_splits = list(set(s.split for s in full_manifest.samples))
+                raise ValueError(
+                    f"Benchmark execution stopped: Configured test split '{self.config.data.test_split_name}' "
+                    f"contains 0 samples in manifest '{self.config.data.manifest_path}'. "
+                    f"Available splits in manifest: {available_splits}. Automatic fallback to full manifest is strictly disabled."
+                )
+            test_manifest = t_split
             c_split = full_manifest.get_split(self.config.data.calibration_split_name)
-
-            test_manifest = t_split if len(t_split) > 0 else full_manifest
             if len(c_split) > 0:
                 calib_manifest = c_split
 
@@ -137,18 +150,25 @@ class BenchmarkRunner:
         # 4. Evaluate each model
         for model_cfg in self.config.models:
             print(f"[*] Benchmarking Model: {model_cfg.name} (Adapter: {model_cfg.adapter})...")
+            model_score_direction = model_cfg.score_direction or self.config.evaluation.score_direction
             adapter = get_adapter(
                 adapter_name=model_cfg.adapter,
                 name=model_cfg.name,
                 version=model_cfg.version,
                 device=model_cfg.device,
-                score_direction=self.config.evaluation.score_direction,
+                score_direction=model_score_direction,
                 score_csv_path=model_cfg.score_csv_path,
                 extra_params=model_cfg.extra_params,
             )
 
-            # Load model
-            adapter.load(model_cfg.checkpoint_path or model_cfg.score_csv_path)
+            # Load model - strictly fail on missing checkpoints or load errors
+            try:
+                adapter.load(model_cfg.checkpoint_path or model_cfg.score_csv_path)
+            except Exception as e:
+                raise RuntimeError(
+                    f"Fatal Error: Failed to load model '{model_cfg.name}' using adapter '{model_cfg.adapter}' "
+                    f"with checkpoint '{model_cfg.checkpoint_path}': {str(e)}"
+                ) from e
 
             # Warmup
             if self.config.latency.warmup_runs > 0:
@@ -163,6 +183,10 @@ class BenchmarkRunner:
                 print(f"[*] Running Calibration on {len(calib_manifest)} samples...")
                 for sample in calib_manifest:
                     res = adapter.predict(sample)
+                    if res.status == SampleStatus.ERROR:
+                        raise RuntimeError(
+                            f"Model inference failed on calibration sample '{sample.sample_id}': {res.error_message}"
+                        )
                     if res.status == SampleStatus.PASS and res.raw_score is not None:
                         calib_scores.append(res.raw_score)
                         calib_gts.append(sample.ground_truth)
@@ -172,10 +196,11 @@ class BenchmarkRunner:
                         scores=calib_scores,
                         ground_truths=calib_gts,
                         method=self.config.evaluation.threshold_method,
-                        score_direction=self.config.evaluation.score_direction,
+                        score_direction=model_score_direction,
                         target_far=self.config.evaluation.target_far,
                         target_frr=self.config.evaluation.target_frr,
                         manual_threshold=self.config.evaluation.manual_threshold,
+                        enforce_sanity_auc=True,
                     )
                     selected_threshold = calibration_result.selected_threshold
                 else:
@@ -210,7 +235,7 @@ class BenchmarkRunner:
                 pred_outcome = ThresholdEngine.decide(
                     score=inf_res.raw_score,
                     threshold=selected_threshold,
-                    score_direction=self.config.evaluation.score_direction,
+                    score_direction=model_score_direction,
                     status=inf_res.status,
                     treat_error_as_reject=self.config.evaluation.treat_error_as_reject,
                 )
@@ -228,7 +253,7 @@ class BenchmarkRunner:
                     model_name=model_cfg.name,
                     model_version=model_cfg.version,
                     raw_score=inf_res.raw_score,
-                    score_direction=self.config.evaluation.score_direction.value,
+                    score_direction=model_score_direction.value,
                     threshold=selected_threshold,
                     prediction=pred_outcome.value,
                     status=inf_res.status.value,
@@ -264,13 +289,13 @@ class BenchmarkRunner:
                 ground_truths=gts,
                 predictions=preds,
                 scores=scores,
-                score_direction=self.config.evaluation.score_direction,
+                score_direction=model_score_direction,
             )
             bio_metrics = compute_biometric_metrics(
                 ground_truths=gts,
                 predictions=preds,
                 scores=scores,
-                score_direction=self.config.evaluation.score_direction,
+                score_direction=model_score_direction,
             )
             pad_metrics = compute_pad_metrics(
                 ground_truths=gts,
@@ -288,7 +313,7 @@ class BenchmarkRunner:
             sweep_rows = ThresholdEngine.sweep(
                 scores=valid_sweep_scores,
                 ground_truths=valid_sweep_gts,
-                score_direction=self.config.evaluation.score_direction,
+                score_direction=model_score_direction,
                 steps=self.config.evaluation.threshold_sweep_steps,
             )
 
@@ -301,7 +326,7 @@ class BenchmarkRunner:
                     ground_truths=valid_sweep_gts,
                     latencies_ms=latencies,
                     output_dir=plot_dir,
-                    score_direction=self.config.evaluation.score_direction,
+                    score_direction=model_score_direction,
                     threshold=selected_threshold,
                     eer=bio_metrics.eer,
                     target_far=self.config.evaluation.target_far,
@@ -313,7 +338,7 @@ class BenchmarkRunner:
             # 8. Hard cases extraction
             hard_cases = BenchmarkReporter.extract_hard_cases(
                 records=evaluation_records,
-                score_direction=self.config.evaluation.score_direction,
+                score_direction=model_score_direction,
                 top_k=self.config.outputs.top_k_hard_cases,
             )
 

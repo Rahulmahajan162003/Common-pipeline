@@ -60,8 +60,7 @@ def compute_classification_metrics(
 
         if scores is not None and idx < len(scores) and scores[idx] is not None:
             s_val = float(scores[idx])
-            # If lower_is_accept, invert score for standard AUC calculation where higher = positive
-            if score_direction == ScoreDirection.LOWER_IS_ACCEPT:
+            if score_direction in (ScoreDirection.LOWER_IS_ACCEPT, ScoreDirection.HIGHER_IS_REJECT):
                 valid_scores.append(-s_val)
             else:
                 valid_scores.append(s_val)

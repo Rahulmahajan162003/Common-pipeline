@@ -1,0 +1,6 @@
+Model Name,Adapter ID,Architecture,Accuracy (%),Balanced Accuracy (%),ROC-AUC,EER (%),APCER (%),BPCER (%),P50 Latency (ms),P95 Latency (ms),Primary Diagnosis
+LitMAS (DeiT + MoE),litmas,Vision Transformer (DeiT-Tiny) + MoE,66.67,50.0,0.5432,47.22,0.0,100.0,224.9,369.8,Domain Saturation on smartphone RGB crops (~0.9999 score across all)
+RTK-PAD,rtk_pad,MobileNetV3 + Knowledge-guided Heads,64.81,48.61,0.4429,55.56,2.78,100.0,213.2,347.3,Score Inversion (Attack screens/prints get higher scores than live)
+DualPatchNet,dualscale_2d,Multi-Scale Patch Texture CNN,64.81,48.61,0.4583,52.78,2.78,100.0,129.0,221.2,Texture Feature Overlap (Screen moiré patterns overlap with skin ridges)
+Model 3D,model_3d,Surface Curvature & Depth Estimation,66.67,50.0,0.5,50.0,0.0,100.0,81.7,156.2,Dynamic Range Collapse (2D RGB crops lack 3D stereo cues; flat ~0.010)
+Flash Liveness,flash_liveness,Active Spectral / Reflection Index,64.81,48.61,0.4306,56.94,2.78,100.0,215.8,297.2,Ambient Floor Effect (Ambient lighting lacks differential active flash)

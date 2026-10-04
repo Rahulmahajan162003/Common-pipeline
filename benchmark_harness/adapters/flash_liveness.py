@@ -65,20 +65,14 @@ class FlashLivenessAdapter(BaseModelAdapter):
             prep_lat_ms = (time.perf_counter() - t0) * 1000.0
 
             t1 = time.perf_counter()
-            if self.model is not None and callable(self.model):
-                import torch
-                tensor = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0)
-                with torch.no_grad():
-                    out = self.model(tensor)
-                    raw_score = float(torch.sigmoid(out).item() if out.numel() == 1 else out[0, 0].item())
-            else:
-                # Biological tissue blood absorption / flash reflectance index proxy
-                # Human skin shows characteristic red channel transmission under direct flash illumination
-                r = arr[:, :, 0]
-                g = arr[:, :, 1]
-                b = arr[:, :, 2]
-                red_dominance = float(np.mean(r) / (np.mean(g) + np.mean(b) + 1e-6))
-                raw_score = float(np.clip((red_dominance - 0.7) * 1.8, 0.05, 0.95))
+            if self.model is None or not callable(self.model):
+                raise RuntimeError(f"[FlashLiveness] Model is not loaded. Fallback scoring is strictly disabled.")
+
+            import torch
+            tensor = torch.from_numpy(arr).permute(2, 0, 1).unsqueeze(0)
+            with torch.no_grad():
+                out = self.model(tensor)
+                raw_score = float(torch.sigmoid(out).item() if out.numel() == 1 else out[0, 0].item())
             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
 
             pred = PredictionOutcome.ACCEPT if raw_score >= 0.5 else PredictionOutcome.REJECT

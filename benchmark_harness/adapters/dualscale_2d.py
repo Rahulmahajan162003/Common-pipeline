@@ -48,23 +48,30 @@ class DualScale2DAdapter(BaseModelAdapter):
 
     def load(self, checkpoint_path: Optional[str] = None) -> None:
         """Loads PyTorch model checkpoint or initializes model architecture."""
-        try:
-            import torch
-            if self.device == "auto":
-                self.torch_device = "cuda" if torch.cuda.is_available() else "cpu"
-            else:
-                self.torch_device = self.device
+        import torch
+        if self.device == "auto":
+            self.torch_device = "cuda" if torch.cuda.is_available() else "cpu"
+        else:
+            self.torch_device = self.device
 
-            if checkpoint_path and os.path.exists(checkpoint_path):
-                # Load real model checkpoint
-                chk = torch.load(checkpoint_path, map_location=self.torch_device, weights_only=False)
-                self.model = chk
-                self._is_loaded = True
+        if not checkpoint_path:
+            raise ValueError(f"[DualScale2D] 'checkpoint_path' must be provided. Fallback simulation is strictly disabled.")
+
+        if not os.path.exists(checkpoint_path):
+            raise FileNotFoundError(f"[DualScale2D] Checkpoint not found: '{checkpoint_path}'. Fallback simulation is strictly disabled.")
+
+        try:
+            chk = torch.load(checkpoint_path, map_location=self.torch_device, weights_only=False)
+            if isinstance(chk, dict) and "model_state_dict" in chk:
+                self.model = chk["model_state_dict"]
             else:
-                # Lightweight standard architecture fallback / simulation
-                self._is_loaded = True
-        except Exception as e:
+                self.model = chk
+            if hasattr(self.model, "eval"):
+                self.model.eval()
             self._is_loaded = True
+            print(f"[DualScale2D] Successfully loaded checkpoint from {checkpoint_path}")
+        except Exception as e:
+            raise RuntimeError(f"[DualScale2D] Failed to load model from '{checkpoint_path}': {str(e)}") from e
 
     def warmup(self, warmup_runs: int = 3) -> None:
         """Warms up GPU/CPU caches."""
@@ -100,6 +107,11 @@ class DualScale2DAdapter(BaseModelAdapter):
         post_lat_ms = 0.0
 
         try:
+            if self.model is None:
+                raise RuntimeError(
+                    f"[DualScale2D] Model '{self.name}' is not loaded. Fallback scoring is strictly disabled."
+                )
+
             # 1. Preprocessing
             t0 = time.perf_counter()
             processed_data = self.preprocess(sample)
@@ -107,26 +119,32 @@ class DualScale2DAdapter(BaseModelAdapter):
 
             # 2. Inference
             t1 = time.perf_counter()
-            if self.model is not None and hasattr(self.model, "predict"):
-                raw_score = float(self.model.predict(processed_data))
-            elif self.model is not None and callable(self.model):
-                import torch
-                tensor = torch.from_numpy(processed_data).permute(2, 0, 1).unsqueeze(0).to(self.torch_device)
-                with torch.no_grad():
-                    out = self.model(tensor)
-                    if hasattr(out, "logits"):
-                        out = out.logits
-                    probs = torch.softmax(out, dim=-1)
-                    raw_score = float(probs[0, 0].item() if probs.shape[-1] > 1 else probs[0].item())
-                if self.torch_device.startswith("cuda"):
-                    torch.cuda.synchronize()
-            else:
-                # Deterministic feature-based score for testing when weights are external
-                img_std = float(np.std(processed_data))
-                img_mean = float(np.mean(processed_data))
-                # High texture contrast is characteristic of bona fide fingerprint ridges
-                raw_score = float(np.clip(1.0 / (1.0 + np.exp(-(img_std * 2.5 - 1.2))), 0.001, 0.999))
+            import torch
+            tensor = torch.from_numpy(processed_data).permute(2, 0, 1).unsqueeze(0).to(self.torch_device)
+            with torch.no_grad():
+                out = self.model(tensor)
+                if hasattr(out, "logits"):
+                    out = out.logits
+                if isinstance(out, (list, tuple)):
+                    out = out[0]
 
+                if out.shape[-1] > 1:
+                    probs = torch.softmax(out, dim=-1)
+                    # Class 0: Live / Bonafide, Class 1: Attack / Spoof
+                    live_prob = float(probs[0, 0].item())
+                    spoof_prob = float(probs[0, 1].item())
+                else:
+                    sig = float(torch.sigmoid(out).item())
+                    spoof_prob = sig
+                    live_prob = 1.0 - sig
+
+                if self.score_direction == ScoreDirection.HIGHER_IS_ACCEPT:
+                    raw_score = live_prob
+                else:
+                    raw_score = spoof_prob
+
+            if self.torch_device.startswith("cuda"):
+                torch.cuda.synchronize()
             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
 
             # 3. Postprocessing

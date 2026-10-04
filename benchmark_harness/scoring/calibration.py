@@ -5,6 +5,7 @@ Threshold calibration engine for selecting operating points from calibration dat
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import numpy as np
+from sklearn import metrics as sk_metrics
 
 from ..schemas import ScoreDirection, ThresholdMethod, GroundTruthLabel
 
@@ -20,6 +21,7 @@ class CalibrationResult:
     calib_acer: float
     calib_num_samples: int
     score_direction: ScoreDirection
+    calib_auc: Optional[float]
     details: Dict[str, Any]
 
 
@@ -36,6 +38,7 @@ class ThresholdCalibrator:
         target_frr: Optional[float] = None,
         manual_threshold: Optional[float] = None,
         sweep_steps: int = 500,
+        enforce_sanity_auc: bool = True,
     ) -> CalibrationResult:
         """Determines the optimal operating threshold using calibration data."""
         if method == ThresholdMethod.MANUAL:
@@ -52,6 +55,7 @@ class ThresholdCalibrator:
                 calib_acer=0.0,
                 calib_num_samples=len(scores),
                 score_direction=score_direction,
+                calib_auc=None,
                 details={"manual_threshold": th},
             )
 
@@ -68,6 +72,16 @@ class ThresholdCalibrator:
             raise ValueError(
                 f"Calibration set must contain both genuine and spoof samples. "
                 f"Found {len(pos_scores)} genuine and {len(neg_scores)} spoof samples."
+            )
+
+        # Sanity Check 4: Calculate Calibration ROC-AUC
+        auc_scores = score_arr if score_direction == ScoreDirection.HIGHER_IS_ACCEPT else -score_arr
+        calib_auc = float(sk_metrics.roc_auc_score(labels.astype(int), auc_scores))
+        if enforce_sanity_auc and calib_auc < 0.50:
+            raise ValueError(
+                f"SANITY STOP: Calibration ROC-AUC is {calib_auc:.4f} (< 0.50)! "
+                f"Evaluation halted because model discriminability is inverted or invalid on calibration data. "
+                f"Verify score_direction (e.g. outputs P(attack) vs P(live)), preprocessing transforms, or model weights."
             )
 
         # Fine-grained threshold grid
@@ -201,5 +215,6 @@ class ThresholdCalibrator:
             calib_acer=float(calib_acer),
             calib_num_samples=len(scores),
             score_direction=score_direction,
+            calib_auc=float(calib_auc),
             details=details,
         )

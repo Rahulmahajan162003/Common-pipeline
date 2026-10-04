@@ -10,6 +10,11 @@ from typing import Any, Dict, List, Optional, Union
 class ScoreDirection(str, Enum):
     HIGHER_IS_ACCEPT = "higher_is_accept"
     LOWER_IS_ACCEPT = "lower_is_accept"
+    HIGHER_IS_REJECT = "higher_is_reject"
+
+    @property
+    def is_higher_accept(self) -> bool:
+        return self == ScoreDirection.HIGHER_IS_ACCEPT
 
 
 class SampleStatus(str, Enum):

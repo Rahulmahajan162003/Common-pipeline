@@ -66,17 +66,14 @@ class Model3DAdapter(BaseModelAdapter):
             prep_lat_ms = (time.perf_counter() - t0) * 1000.0
 
             t1 = time.perf_counter()
-            if self.model is not None and callable(self.model):
-                import torch
-                tensor = torch.from_numpy(arr).unsqueeze(0).unsqueeze(0)
-                with torch.no_grad():
-                    out = self.model(tensor)
-                    raw_score = float(torch.sigmoid(out).item() if out.numel() == 1 else out[0, 0].item())
-            else:
-                # 3D surface gradient energy proxy
-                gy, gx = np.gradient(arr)
-                curvature_energy = float(np.mean(gx**2 + gy**2))
-                raw_score = float(np.clip(curvature_energy * 15.0, 0.01, 0.99))
+            if self.model is None or not callable(self.model):
+                raise RuntimeError(f"[Model3D] Model is not loaded. Fallback scoring is strictly disabled.")
+
+            import torch
+            tensor = torch.from_numpy(arr).unsqueeze(0).unsqueeze(0)
+            with torch.no_grad():
+                out = self.model(tensor)
+                raw_score = float(torch.sigmoid(out).item() if out.numel() == 1 else out[0, 0].item())
             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
 
             pred = PredictionOutcome.ACCEPT if raw_score >= 0.5 else PredictionOutcome.REJECT

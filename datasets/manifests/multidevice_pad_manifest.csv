@@ -1,0 +1,91 @@
+sample_id,subject_id,session_id,finger_id,scenario,split,ground_truth,image_path,device,spoof_type,material
+PAD_0001,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_1_print_left_ip15p_m.JPG,iPhone_15_Pro,printed_photo,matte_paper
+PAD_0002,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_1_print_right_ip15p_g.JPG,iPhone_15_Pro,printed_photo,glossy_paper
+PAD_0003,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_2_print_left_ip15p_m.JPG,iPhone_15_Pro,printed_photo,matte_paper
+PAD_0004,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_2_print_right_ip15p_g.JPG,iPhone_15_Pro,printed_photo,glossy_paper
+PAD_0005,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_3_print_left_ip15p_m.JPG,iPhone_15_Pro,printed_photo,matte_paper
+PAD_0006,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_3_print_right_ip15p_g.JPG,iPhone_15_Pro,printed_photo,glossy_paper
+PAD_0007,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_4_print_left_ip15p_m.JPG,iPhone_15_Pro,printed_photo,matte_paper
+PAD_0008,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_4_print_right_ip15p_g.JPG,iPhone_15_Pro,printed_photo,glossy_paper
+PAD_0009,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_5_print_left_ip15p_m.JPG,iPhone_15_Pro,printed_photo,matte_paper
+PAD_0010,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Print\1_5_print_right_ip15p_g.JPG,iPhone_15_Pro,printed_photo,glossy_paper
+PAD_0011,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_1_left_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0012,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_1_right_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0013,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_2_left_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0014,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_2_right_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0015,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_3_left_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0016,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_3_right_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0017,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_4_left_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0018,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_4_right_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0019,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_5_left_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0020,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Real\1_5_right_real _ip15p.JPG,iPhone_15_Pro,none,human_skin
+PAD_0021,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_1_replay_left_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0022,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_1_replay_right_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0023,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_2_replay_left_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0024,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_2_replay_right_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0025,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_3_replay_left_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0026,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_3_replay_right_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0027,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_4_replay_left_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0028,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_4_replay_right_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0029,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_5_replay_left_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0030,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\iPhone 15 Pro\Replay\1_5_replay_right_ip15p_ip15p.JPG,iPhone_15_Pro,replay_screen,screen_display
+PAD_0031,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_1_print_left_opa18_m.jpg,OPPO_A18,printed_photo,matte_paper
+PAD_0032,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_1_print_right_opa18_g.jpg,OPPO_A18,printed_photo,glossy_paper
+PAD_0033,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_2_print_left_opa18_m.jpg,OPPO_A18,printed_photo,matte_paper
+PAD_0034,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_2_print_right_opa18_g.jpg,OPPO_A18,printed_photo,glossy_paper
+PAD_0035,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_3_print_left_opa18_m.jpg,OPPO_A18,printed_photo,matte_paper
+PAD_0036,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_3_print_right_opa18_g.jpg,OPPO_A18,printed_photo,glossy_paper
+PAD_0037,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_4_print_left_opa18_m.jpg,OPPO_A18,printed_photo,matte_paper
+PAD_0038,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_4_print_right_opa18_g.jpg,OPPO_A18,printed_photo,glossy_paper
+PAD_0039,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_5_print_left_opa18_m.jpg,OPPO_A18,printed_photo,matte_paper
+PAD_0040,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Print\1_5_print_right_opa18_g.jpg,OPPO_A18,printed_photo,glossy_paper
+PAD_0041,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_1_left_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0042,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_1_right_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0043,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_2_left_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0044,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_2_right_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0045,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_3_left_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0046,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_3_right_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0047,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_4_left_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0048,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_4_right_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0049,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_5_left_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0050,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Real\1_5_right_real _opa18.jpg,OPPO_A18,none,human_skin
+PAD_0051,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_1_replay_left_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0052,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_1_replay_right_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0053,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_2_replay_left_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0054,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_2_replay_right_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0055,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_3_replay_left_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0056,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_3_replay_right_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0057,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_4_replay_left_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0058,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_4_replay_right_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0059,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_5_replay_left_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0060,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\OPPO A18\Replay\1_5_replay_right_opa18_SA53.jpg,OPPO_A18,replay_screen,screen_display
+PAD_0061,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_1_print_left_SA53_g.jpg,Samsung_Galaxy_A53_5G,printed_photo,glossy_paper
+PAD_0062,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_1_print_right_SA53_m.jpg,Samsung_Galaxy_A53_5G,printed_photo,matte_paper
+PAD_0063,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_2_print_left_SA53_g.jpg,Samsung_Galaxy_A53_5G,printed_photo,glossy_paper
+PAD_0064,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_2_print_right_SA53_m.jpg,Samsung_Galaxy_A53_5G,printed_photo,matte_paper
+PAD_0065,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_3_print_left_SA53_g.jpg,Samsung_Galaxy_A53_5G,printed_photo,glossy_paper
+PAD_0066,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_3_print_right_SA53_m.jpg,Samsung_Galaxy_A53_5G,printed_photo,matte_paper
+PAD_0067,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_4_print_left_SA53_g.jpg,Samsung_Galaxy_A53_5G,printed_photo,glossy_paper
+PAD_0068,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_4_print_right_SA53_m.jpg,Samsung_Galaxy_A53_5G,printed_photo,matte_paper
+PAD_0069,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_5_print_left_SA53_g.jpg,Samsung_Galaxy_A53_5G,printed_photo,glossy_paper
+PAD_0070,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Print\1_5_print_right_SA53_m.jpg,Samsung_Galaxy_A53_5G,printed_photo,matte_paper
+PAD_0071,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_1_left_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0072,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_1_right_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0073,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_2_left_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0074,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_2_right_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0075,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_3_left_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0076,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_3_right_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0077,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_4_left_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0078,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_4_right_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0079,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_5_left_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0080,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,live,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Real\1_5_right_real _SA53.jpg,Samsung_Galaxy_A53_5G,none,human_skin
+PAD_0081,SUBJ_01_S01,SES_01,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_1_replay_left_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0082,SUBJ_01_S01,SES_01,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_1_replay_right_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0083,SUBJ_01_S02,SES_02,left_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_2_replay_left_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0084,SUBJ_01_S02,SES_02,right_index,indoor_controlled,calibration,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_2_replay_right_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0085,SUBJ_01_S03,SES_03,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_3_replay_left_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0086,SUBJ_01_S03,SES_03,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_3_replay_right_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0087,SUBJ_01_S04,SES_04,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_4_replay_left_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0088,SUBJ_01_S04,SES_04,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_4_replay_right_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0089,SUBJ_01_S05,SES_05,left_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_5_replay_left_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
+PAD_0090,SUBJ_01_S05,SES_05,right_index,indoor_controlled,test,spoof,D:\RTK-PAD-main\data\Spoofing Dataset\Samsung Galaxy A53 5G\Replay\1_5_replay_right_SA53_opa18.jpg,Samsung_Galaxy_A53_5G,replay_screen,screen_display
