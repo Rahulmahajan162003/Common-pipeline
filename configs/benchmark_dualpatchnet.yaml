@@ -1,15 +1,15 @@
 # YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
-# Dedicated DualpatchNet Evaluation
+# Dedicated DualScalePatchNet Evaluation on pad_v0
 
 benchmark:
   name: dualpatchnet_evaluation
-  dataset_version: multidevice_pad_v1
+  dataset_version: pad_v0
   task_type: single_finger_authentication
   random_seed: 42
-  description: "DualScalePatchNet / DualpatchNet 2D Fingerprint Evaluation"
+  description: "DualScalePatchNet Single-Finger Evaluation on pad_v0"
 
 data:
-  manifest_path: datasets/manifests/multidevice_pad_manifest.csv
+  manifest_path: datasets/manifests/pad_v0/pad_v0_single_finger.csv
   calibration_split_name: calibration
   test_split_name: test
   check_image_existence: true
@@ -30,9 +30,10 @@ latency:
   thresholds_ms: [50.0, 100.0, 250.0, 500.0]
 
 models:
-  - name: dualpatchnet
+  - name: dual_scale_patchnet
     version: 1.0.0
     adapter: dualscale_2d
+    checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
     device: cpu
 
 outputs:

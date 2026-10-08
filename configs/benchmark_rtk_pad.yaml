@@ -1,15 +1,15 @@
 # YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
-# Dedicated RTK-PAD Evaluation
+# Dedicated RTK-PAD Evaluation on pad_v0_slap
 
 benchmark:
-  name: rtk_pad_evaluation
-  dataset_version: multidevice_pad_v1
-  task_type: single_finger_authentication
+  name: rtk_pad_slap_evaluation
+  dataset_version: pad_v0
+  task_type: slap_4_finger_authentication
   random_seed: 42
-  description: "RTK-PAD MobileNetV3 Presentation Attack Detection Evaluation"
+  description: "GlobalLocalRTKPAD Slap Presentation Attack Detection on pad_v0"
 
 data:
-  manifest_path: datasets/manifests/multidevice_pad_manifest.csv
+  manifest_path: datasets/manifests/pad_v0/pad_v0_slap.csv
   calibration_split_name: calibration
   test_split_name: test
   check_image_existence: true
@@ -18,8 +18,9 @@ data:
 
 evaluation:
   score_direction: higher_is_accept
-  threshold_method: target_far
-  target_far: 0.01       # Target FAR <= 1.0%
+  threshold_method: manual
+  manual_threshold: 0.50
+  target_far: 0.01
   target_frr: 0.05
   treat_error_as_reject: false
   threshold_sweep_steps: 100
@@ -30,10 +31,10 @@ latency:
   thresholds_ms: [50.0, 100.0, 250.0, 500.0]
 
 models:
-  - name: rtk_pad_mobilenetv3
+  - name: rtk_pad_global_local
     version: 1.0.0
     adapter: rtk_pad
-    checkpoint_path: D:\rtk_pad_colfispoof_weights.pth
+    checkpoint_path: models/pad_rtk_global_local_best.pt
     device: cpu
 
 outputs:

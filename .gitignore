@@ -8,6 +8,8 @@ build/
 develop-eggs/
 dist/
 downloads/
+downloads_gdrive/
+reference_code/
 eggs/
 .eggs/
 lib/
@@ -42,6 +44,17 @@ htmlcov/
 *~
 .DS_Store
 Thumbs.db
+
+# Heavy Datasets, Images, and Model Weights
+*.pt
+*.pth
+*.zip
+*.bin
+*.tar.gz
+*.heic
+datasets/manifests/pad_v0/images/
+backend/models/
+backend/pad/weights/
 
 # Results / Temporary generated runs (keep directory structure)
 results/*/run_*

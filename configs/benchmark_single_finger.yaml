@@ -1,15 +1,15 @@
 # YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
-# Single-Finger Full Evaluation Pipeline
+# Single-Finger DualScalePatchNet Evaluation on pad_v0
 
 benchmark:
-  name: single_finger_v1_evaluation
-  dataset_version: single_finger_test_v1
+  name: single_finger_pad_v0_evaluation
+  dataset_version: pad_v0
   task_type: single_finger_authentication
   random_seed: 42
-  description: "YellowSense Single-Finger 2D, 3D, and Flash Liveness Benchmark"
+  description: "DualScalePatchNet Single-Finger PAD Evaluation on pad_v0"
 
 data:
-  manifest_path: datasets/manifests/example_manifest.csv
+  manifest_path: datasets/manifests/pad_v0/pad_v0_single_finger.csv
   calibration_split_name: calibration
   test_split_name: test
   check_image_existence: true
@@ -19,21 +19,21 @@ data:
 evaluation:
   score_direction: higher_is_accept
   threshold_method: target_far
-  target_far: 0.001       # Target FAR <= 0.1%
-  target_frr: 0.01        # Target FRR <= 1.0%
+  target_far: 0.01       # Target FAR <= 1.0% (APCER <= 1.0%)
+  target_frr: 0.05       # Target FRR <= 5.0%
   treat_error_as_reject: false
   threshold_sweep_steps: 100
 
 latency:
   warmup_runs: 3
   repetitions: 1
-  thresholds_ms: [1000.0, 2000.0, 5000.0, 7000.0]
+  thresholds_ms: [50.0, 100.0, 250.0, 500.0]
 
 models:
-  - name: dualscale_2d
+  - name: dual_scale_patchnet
     version: 1.0.0
     adapter: dualscale_2d
-    checkpoint_path: checkpoints/dualscale_model.pth
+    checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
     device: cpu
 
 outputs:

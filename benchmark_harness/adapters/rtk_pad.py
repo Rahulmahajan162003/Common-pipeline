@@ -1,17 +1,21 @@
 """
-RTK-PAD (Real-Time Knowledge-guided Presentation Attack Detection) Model Adapter.
-Evaluates MobileNetV3-based PAD models on single-finger RGB images.
+RTK-PAD (GlobalLocalRTKPAD) Presentation Attack Detection Adapter.
+Implements:
+1. Slap and single-finger detection using YOLO (best-new.pt)
+2. Global-Local Dual Attention scoring via GlobalLocalRTKPAD (pad_rtk_global_local_best.pt)
+3. Zero-Tolerance / Weakest-Link slap aggregation: slap_live = min(finger_live_scores)
 """
 
 import os
+import sys
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List, Tuple
 import numpy as np
+import cv2
 from PIL import Image
-
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import transforms
 
 from .base import BaseModelAdapter
 from ..schemas import (
@@ -23,159 +27,60 @@ from ..schemas import (
     TimingRecord,
 )
 
-
-def _make_divisible(v, divisor, min_value=None):
-    if min_value is None:
-        min_value = divisor
-    new_v = max(min_value, int(v + divisor / 2) // divisor * divisor)
-    if new_v < 0.9 * v:
-        new_v += divisor
-    return new_v
-
-
-class Hsigmoid(nn.Module):
-    def __init__(self, inplace=True):
-        super(Hsigmoid, self).__init__()
-        self.relu = nn.ReLU6(inplace=inplace)
-
-    def forward(self, x):
-        return self.relu(x + 3) / 6
+# Standard ImageNet transform for RTK-PAD 224x224 input
+MEAN = (0.485, 0.456, 0.406)
+STD = (0.229, 0.224, 0.225)
+TF_224 = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+    transforms.Normalize(MEAN, STD)
+])
 
 
-class Hswish(nn.Module):
-    def __init__(self, inplace=True):
-        super(Hswish, self).__init__()
-        self.sigmoid = Hsigmoid(inplace=inplace)
+def _get_rtk_model_cls():
+    """Dynamically imports GlobalLocalRTKPAD class."""
+    try:
+        from backend.pad.models_rtk import GlobalLocalRTKPAD, build_rtk_pad_model
+        return GlobalLocalRTKPAD, build_rtk_pad_model
+    except ImportError:
+        pass
 
-    def forward(self, x):
-        return x * self.sigmoid(x)
+    possible_dirs = [
+        os.path.join(os.getcwd(), "backend"),
+        os.path.join(os.getcwd(), "reference_code", "uidai-leader-work", "backend"),
+    ]
+    for p in possible_dirs:
+        if os.path.exists(p) and p not in sys.path:
+            sys.path.insert(0, p)
 
-
-class SELayer(nn.Module):
-    def __init__(self, channel, reduction=4):
-        super(SELayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Linear(channel, _make_divisible(channel // reduction, 8)),
-            nn.ReLU(inplace=True),
-            nn.Linear(_make_divisible(channel // reduction, 8), channel),
-            Hsigmoid(),
-        )
-
-    def forward(self, x):
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        y = self.fc(y).view(b, c, 1, 1)
-        return x * y
+    try:
+        from pad.models_rtk import GlobalLocalRTKPAD, build_rtk_pad_model
+        return GlobalLocalRTKPAD, build_rtk_pad_model
+    except ImportError as e:
+        raise ImportError(f"[RTK-PAD] Failed to import GlobalLocalRTKPAD: {e}") from e
 
 
-def conv_3x3_bn(inp, oup, stride):
-    return nn.Sequential(
-        nn.Conv2d(inp, oup, 3, stride, 1, bias=False),
-        nn.BatchNorm2d(oup),
-        Hswish(),
-    )
+def _get_yolo_detector():
+    """Loads YOLO finger detector."""
+    try:
+        from ultralytics import YOLO
+    except ImportError as e:
+        raise ImportError(f"[RTK-PAD] ultralytics package is required for finger detection: {e}") from e
 
-
-def conv_1x1_bn(inp, oup):
-    return nn.Sequential(
-        nn.Conv2d(inp, oup, 1, 1, 0, bias=False),
-        nn.BatchNorm2d(oup),
-        Hswish(),
-    )
-
-
-class InvertedResidual(nn.Module):
-    def __init__(self, inp, hidden_dim, oup, kernel_size, stride, use_se, use_hs):
-        super(InvertedResidual, self).__init__()
-        assert stride in [1, 2]
-        self.identity = stride == 1 and inp == oup
-        if inp == hidden_dim:
-            self.conv = nn.Sequential(
-                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False),
-                nn.BatchNorm2d(hidden_dim),
-                Hswish() if use_hs else nn.ReLU(inplace=True),
-                SELayer(hidden_dim) if use_se else nn.Identity(),
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-            )
-        else:
-            self.conv = nn.Sequential(
-                nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(hidden_dim),
-                Hswish() if use_hs else nn.ReLU(inplace=True),
-                nn.Conv2d(hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False),
-                nn.BatchNorm2d(hidden_dim),
-                SELayer(hidden_dim) if use_se else nn.Identity(),
-                Hswish() if use_hs else nn.ReLU(inplace=True),
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-            )
-
-    def forward(self, x):
-        if self.identity:
-            return x + self.conv(x)
-        else:
-            return self.conv(x)
-
-
-class MobileNetV3PAD(nn.Module):
-    def __init__(self, num_classes=2, width_mult=1.0):
-        super(MobileNetV3PAD, self).__init__()
-        self.cfgs = [
-            # k, t, c, SE, HS, s
-            [3,   1,  16, 0, 0, 1],
-            [3,   4,  24, 0, 0, 2],
-            [3,   3,  24, 0, 0, 1],
-            [5,   3,  40, 1, 0, 2],
-            [5,   3,  40, 1, 0, 1],
-            [5,   3,  40, 1, 0, 1],
-            [3,   6,  80, 0, 1, 2],
-            [3, 2.5,  80, 0, 1, 1],
-            [3, 2.3,  80, 0, 1, 1],
-            [3, 2.3,  80, 0, 1, 1],
-            [3,   6, 112, 1, 1, 1],
-            [3,   6, 112, 1, 1, 1],
-            [5,   6, 160, 1, 1, 2],
-            [5,   6, 160, 1, 1, 1],
-            [5,   6, 160, 1, 1, 1],
-        ]
-        input_channel = _make_divisible(16 * width_mult, 8)
-        layers = [conv_3x3_bn(3, input_channel, 2)]
-        block = InvertedResidual
-        for k, t, c, use_se, use_hs, s in self.cfgs:
-            output_channel = _make_divisible(c * width_mult, 8)
-            exp_size = _make_divisible(input_channel * t, 8)
-            layers.append(block(input_channel, exp_size, output_channel, k, s, use_se, use_hs))
-            input_channel = output_channel
-        self.features = nn.Sequential(*layers)
-        self.conv = conv_1x1_bn(input_channel, exp_size)
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        output_channel = 1280
-        self.classifier = nn.Sequential(
-            nn.Linear(exp_size, output_channel),
-            Hswish(),
-            nn.Dropout(0.2),
-        )
-        self.linear = nn.Linear(output_channel, num_classes)
-
-    def forward(self, x):
-        x = self.features(x)
-        x = self.conv(x)
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
-        x = self.linear(x)
-        return x
+    possible_weights = [
+        os.path.join("models", "best-new.pt"),
+        os.path.join("backend", "best-new.pt"),
+        os.path.join("backend", "models", "best-new.pt"),
+        os.path.join("reference_code", "uidai-leader-work", "backend", "best-new.pt"),
+    ]
+    for w in possible_weights:
+        if os.path.exists(w):
+            return YOLO(w)
+    raise FileNotFoundError(f"[RTK-PAD] YOLO detector weights 'best-new.pt' not found in: {possible_weights}")
 
 
 class RtkPadAdapter(BaseModelAdapter):
-    """Adapter for RTK-PAD MobileNetV3 presentation attack detection model."""
-
-    DEFAULT_CHECKPOINTS = [
-        r"D:\rtk_pad_colfispoof_weights.pth",
-        r"D:\RTK-PAD-main\RTK-PAD-main\checkpoints\colfispoof\rtk_pad_colfispoof_best.pth",
-    ]
+    """Adapter for RTK-PAD GlobalLocal model on slap and single finger images."""
 
     def __init__(
         self,
@@ -194,67 +99,135 @@ class RtkPadAdapter(BaseModelAdapter):
         )
         self.preprocessing_config = {
             "resize": [224, 224],
-            "normalization": {"mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+            "normalization": {"mean": list(MEAN), "std": list(STD)},
             "color_format": "RGB",
+            "slap_aggregation": "zero_tolerance_min_live",
         }
-        self.model: Optional[nn.Module] = None
+        self.model: Optional[torch.nn.Module] = None
+        self.detector = None
         self.torch_device = "cpu"
 
     def load(self, checkpoint_path: Optional[str] = None) -> None:
-        """Loads RTK-PAD MobileNetV3 weights."""
+        """Loads GlobalLocalRTKPAD and YOLO finger detector."""
         if self.device == "auto":
             self.torch_device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
             self.torch_device = self.device
 
-        self.model = MobileNetV3PAD(num_classes=2)
+        if not checkpoint_path:
+            raise ValueError(f"[RTK-PAD] 'checkpoint_path' must be provided. Fallback simulation is strictly disabled.")
 
-        # Resolve checkpoint path
-        target_path = checkpoint_path
-        if not target_path or not os.path.exists(target_path):
-            raise FileNotFoundError(
-                f"[RTK-PAD] Required model checkpoint not found: '{checkpoint_path}'. "
-                f"Automatic fallback scoring is strictly disabled."
-            )
+        if not os.path.exists(checkpoint_path):
+            raise FileNotFoundError(f"[RTK-PAD] Checkpoint not found: '{checkpoint_path}'. Fallback simulation is strictly disabled.")
+
+        resolved_checkpoint = checkpoint_path
 
         try:
-            ckpt = torch.load(target_path, map_location=self.torch_device, weights_only=False)
-            state_dict = ckpt.get("model_state_dict", ckpt)
+            _, build_fn = _get_rtk_model_cls()
+            self.model = build_fn(num_classes=2, pretrained=False).to(self.torch_device)
+            ckpt = torch.load(resolved_checkpoint, map_location=self.torch_device, weights_only=False)
+            state_dict = ckpt.get("model_state_dict", ckpt) if isinstance(ckpt, dict) else ckpt
             self.model.load_state_dict(state_dict)
-            print(f"[RTK-PAD] Loaded weights successfully from {target_path}")
+            self.model.eval()
+            print(f"[RTK-PAD] Loaded GlobalLocalRTKPAD weights from {resolved_checkpoint} onto {self.torch_device}")
         except Exception as e:
-            raise RuntimeError(f"[RTK-PAD] Failed to load checkpoint from {target_path}: {e}") from e
+            raise RuntimeError(f"[RTK-PAD] Failed to load GlobalLocalRTKPAD from '{resolved_checkpoint}': {e}") from e
 
-        self.model.to(self.torch_device)
-        self.model.eval()
+        # Load YOLO detector
+        try:
+            self.detector = _get_yolo_detector()
+            print("[RTK-PAD] Loaded YOLO finger detector (best-new.pt)")
+        except Exception as e:
+            print(f"[RTK-PAD] Warning: YOLO finger detector not loaded ({e}). Direct whole-image scoring fallback will be used.")
+
         self._is_loaded = True
 
     def warmup(self, warmup_runs: int = 3) -> None:
-        """Warm up PyTorch graph and hardware caches."""
+        """Warms up model and hardware caches."""
         if self.model is None:
             return
         dummy = torch.randn(1, 3, 224, 224, device=self.torch_device)
-        with torch.no_grad():
-            for _ in range(warmup_runs):
-                _ = self.model(dummy)
-        if self.torch_device.startswith("cuda"):
-            torch.cuda.synchronize()
+        try:
+            with torch.no_grad():
+                for _ in range(warmup_runs):
+                    _ = self.model(dummy)
+            if str(self.torch_device).startswith("cuda"):
+                torch.cuda.synchronize()
+        except Exception:
+            pass
         self._warmup_done = True
 
-    def preprocess(self, sample: ManifestSample) -> torch.Tensor:
-        """Loads image, resizes to (224, 224), normalizes with ImageNet parameters."""
-        if not os.path.exists(sample.image_path):
-            raise FileNotFoundError(f"Image not found: {sample.image_path}")
+    def detect_slap_fingers(self, im_bgr: np.ndarray) -> List[Tuple[np.ndarray, Tuple[int, int, int, int], float]]:
+        """
+        Detects finger crops in slap image using YOLO detector.
+        Applies multi-scale detection, NMS filtering, and sorts fingers left to right.
+        """
+        if self.detector is None:
+            return [(im_bgr, (0, 0, im_bgr.shape[1], im_bgr.shape[0]), 1.0)]
 
-        img = Image.open(sample.image_path).convert("RGB")
-        img = img.resize((224, 224), Image.Resampling.BILINEAR)
-        arr = np.array(img, dtype=np.float32) / 255.0
-        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-        std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-        norm = (arr - mean) / std
-        # Convert HWC to CHW tensor
-        tensor = torch.from_numpy(norm).permute(2, 0, 1).unsqueeze(0).to(self.torch_device)
-        return tensor
+        all_boxes = []
+        for sz in [640, 800, 1024]:
+            try:
+                res = self.detector(im_bgr, imgsz=sz, conf=0.15, verbose=False)
+                boxes = res[0].boxes
+                if len(boxes) > 0:
+                    for b, c in zip(boxes.xyxy.cpu().numpy(), boxes.conf.cpu().numpy()):
+                        h, w = b[3] - b[1], b[2] - b[0]
+                        if h > 50 and w > 50:
+                            all_boxes.append((b, float(c)))
+            except Exception:
+                pass
+
+        kept = []
+        for b, c in sorted(all_boxes, key=lambda x: x[1], reverse=True):
+            ax1, ay1, ax2, ay2 = b
+            overlap = False
+            for kb, kc in kept:
+                kx1, ky1, kx2, ky2 = kb
+                ix1, iy1 = max(ax1, kx1), max(ay1, ky1)
+                ix2, iy2 = min(ax2, kx2), min(ay2, ky2)
+                iw, ih = max(0, ix2 - ix1), max(0, iy2 - iy1)
+                inter = iw * ih
+                union = (ax2 - ax1) * (ay2 - ay1) + (kx2 - kx1) * (ky2 - ky1) - inter
+                iou = inter / union if union > 0 else 0
+                if iou > 0.35:
+                    overlap = True
+                    break
+            if not overlap:
+                kept.append((b, c))
+
+        kept.sort(key=lambda x: (x[0][0] + x[0][2]) / 2.0)
+
+        h_img, w_img = im_bgr.shape[:2]
+        crops = []
+        for b, conf in kept:
+            x1, y1, x2, y2 = b.astype(int)
+            margin = 15
+            cx1 = max(0, x1 - margin)
+            cy1 = max(0, y1 - margin)
+            cx2 = min(w_img, x2 + margin)
+            cy2 = min(h_img, y2 + margin)
+            crop = im_bgr[cy1:cy2, cx1:cx2]
+            if crop.size > 0:
+                crops.append((crop, (cx1, cy1, cx2, cy2), conf))
+
+        if not crops:
+            crops.append((im_bgr, (0, 0, w_img, h_img), 0.0))
+
+        return crops
+
+    def score_single_crop(self, crop_bgr: np.ndarray) -> Tuple[float, float]:
+        """Evaluates one crop with GlobalLocalRTKPAD. Returns (p_live, p_attack)."""
+        rgb = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2RGB)
+        im_pil = Image.fromarray(rgb)
+        t_224 = TF_224(im_pil).unsqueeze(0).to(self.torch_device)
+
+        with torch.no_grad():
+            out = self.model(t_224)
+            p_attack = float(out["prob_attack"][0].cpu().item())
+            p_live = 1.0 - p_attack
+
+        return p_live, p_attack
 
     def predict(self, sample: ManifestSample) -> ModelInferenceResult:
         t_start = time.perf_counter()
@@ -266,31 +239,49 @@ class RtkPadAdapter(BaseModelAdapter):
             if self.model is None:
                 raise RuntimeError("[RTK-PAD] Model weights are not loaded. Fallback scoring is strictly disabled.")
 
-            # 1. Preprocessing
+            if not os.path.exists(sample.image_path):
+                raise FileNotFoundError(f"Image not found: {sample.image_path}")
+
+            # 1. Preprocessing & Finger Detection
             t0 = time.perf_counter()
-            tensor = self.preprocess(sample)
+            img_bgr = cv2.imread(sample.image_path)
+            if img_bgr is None:
+                raise ValueError(f"cv2.imread failed to read image: {sample.image_path}")
+
+            finger_crops = self.detect_slap_fingers(img_bgr)
             prep_lat_ms = (time.perf_counter() - t0) * 1000.0
 
-            # 2. Inference
+            # 2. Inference on each finger crop
             t1 = time.perf_counter()
-            with torch.no_grad():
-                logits = self.model(tensor)
-                probs = F.softmax(logits, dim=-1)
-                # Class 0 = Live (Bonafide), Class 1 = Spoof (Attack)
-                live_prob = float(probs[0, 0].item())
-                spoof_prob = float(probs[0, 1].item())
+            finger_scores: List[Dict[str, float]] = []
+            for idx, (crop, bbox, conf) in enumerate(finger_crops, start=1):
+                p_live, p_attack = self.score_single_crop(crop)
+                finger_scores.append({
+                    "finger_index": idx,
+                    "yolo_conf": round(conf, 3),
+                    "p_live": round(p_live, 6),
+                    "p_attack": round(p_attack, 6),
+                    "bbox": list(bbox),
+                })
 
-                if self.score_direction == ScoreDirection.HIGHER_IS_ACCEPT:
-                    raw_score = live_prob
-                else:
-                    raw_score = spoof_prob
-
-            if self.torch_device.startswith("cuda"):
+            if str(self.torch_device).startswith("cuda"):
                 torch.cuda.synchronize()
             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
 
-            # 3. Decision & Postprocessing
+            # 3. Slap Fusion Rule: Zero-Tolerance / Weakest-Link (min live score)
             t2 = time.perf_counter()
+            if finger_scores:
+                slap_live = min(f["p_live"] for f in finger_scores)
+                slap_attack = max(f["p_attack"] for f in finger_scores)
+            else:
+                slap_live = 0.0
+                slap_attack = 1.0
+
+            if self.score_direction == ScoreDirection.HIGHER_IS_ACCEPT:
+                raw_score = slap_live
+            else:
+                raw_score = slap_attack
+
             pred = PredictionOutcome.ACCEPT if (
                 raw_score >= 0.5 if self.score_direction == ScoreDirection.HIGHER_IS_ACCEPT else raw_score <= 0.5
             ) else PredictionOutcome.REJECT
@@ -312,8 +303,14 @@ class RtkPadAdapter(BaseModelAdapter):
                     inference_latency_ms=infer_lat_ms,
                     postprocess_latency_ms=post_lat_ms,
                 ),
-                device=self.torch_device,
-                extra_metadata={"preprocessing": self.preprocessing_config},
+                device=str(self.torch_device),
+                extra_metadata={
+                    "slap_live_score": round(slap_live, 6),
+                    "slap_attack_score": round(slap_attack, 6),
+                    "fingers_detected": len(finger_crops),
+                    "finger_breakdown": finger_scores,
+                    "preprocessing": self.preprocessing_config,
+                },
             )
 
         except Exception as e:
@@ -329,5 +326,5 @@ class RtkPadAdapter(BaseModelAdapter):
                 error_type=type(e).__name__,
                 error_message=str(e),
                 timing=TimingRecord(total_latency_ms=total_lat_ms),
-                device=self.torch_device,
+                device=str(self.torch_device),
             )
