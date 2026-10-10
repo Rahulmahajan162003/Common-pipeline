@@ -133,12 +133,15 @@ class RtkPadAdapter(BaseModelAdapter):
         except Exception as e:
             raise RuntimeError(f"[RTK-PAD] Failed to load GlobalLocalRTKPAD from '{resolved_checkpoint}': {e}") from e
 
-        # Load YOLO detector
+        # Load YOLO detector - strictly fail on error without fallback
         try:
             self.detector = _get_yolo_detector()
             print("[RTK-PAD] Loaded YOLO finger detector (best-new.pt)")
         except Exception as e:
-            print(f"[RTK-PAD] Warning: YOLO finger detector not loaded ({e}). Direct whole-image scoring fallback will be used.")
+            raise RuntimeError(
+                f"[RTK-PAD] Failed to load YOLO finger detector 'best-new.pt': {e}. "
+                f"Hidden fallbacks are strictly disabled."
+            ) from e
 
         self._is_loaded = True
 
@@ -163,7 +166,7 @@ class RtkPadAdapter(BaseModelAdapter):
         Applies multi-scale detection, NMS filtering, and sorts fingers left to right.
         """
         if self.detector is None:
-            return [(im_bgr, (0, 0, im_bgr.shape[1], im_bgr.shape[0]), 1.0)]
+            raise RuntimeError("[RTK-PAD] YOLO detector is not loaded. Hidden fallbacks are strictly disabled.")
 
         all_boxes = []
         for sz in [640, 800, 1024]:

@@ -18,9 +18,8 @@ data:
 
 evaluation:
   score_direction: higher_is_accept
-  threshold_method: target_far
-  target_far: 0.01       # Target FAR <= 1.0% (APCER <= 1.0%)
-  target_frr: 0.05       # Target FRR <= 5.0%
+  threshold_method: manual
+  manual_threshold: 0.4500       # App production threshold (verdict: accepted if p_live >= 0.45)
   treat_error_as_reject: false
   threshold_sweep_steps: 100
 
@@ -35,6 +34,9 @@ models:
     adapter: dualscale_2d
     checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
     device: cpu
+    extra_params:
+      patch_aggregation: mean    # Configurable: 'mean' | 'top2'
+      finger_crop: none          # Configurable: 'none' | 'yolo'
 
 outputs:
   root: results

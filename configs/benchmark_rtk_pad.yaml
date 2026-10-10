@@ -20,8 +20,6 @@ evaluation:
   score_direction: higher_is_accept
   threshold_method: manual
   manual_threshold: 0.50
-  target_far: 0.01
-  target_frr: 0.05
   treat_error_as_reject: false
   threshold_sweep_steps: 100
 
@@ -36,6 +34,8 @@ models:
     adapter: rtk_pad
     checkpoint_path: models/pad_rtk_global_local_best.pt
     device: cpu
+    extra_params:
+      slap_aggregation: min      # Configurable: 'min' (zero-tolerance weakest-link)
 
 outputs:
   root: results

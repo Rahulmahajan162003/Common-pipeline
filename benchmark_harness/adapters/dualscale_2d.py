@@ -1,6 +1,9 @@
 """
 DualScalePatchNet Model Adapter for single-finger evaluation.
 Uses native DualScalePatchNet architecture and exact preprocessing from training pipeline.
+Supports configurable preprocessing modes:
+- patch_aggregation: 'mean' | 'top2'
+- finger_crop: 'none' | 'yolo' (same as detect_single_finger() in eval_new_screen_attacks.py)
 """
 
 import os
@@ -34,7 +37,6 @@ def _get_dualscale_model_cls():
     except ImportError:
         pass
 
-    # Try reference_code path
     possible_dirs = [
         os.path.join(os.getcwd(), "backend"),
         os.path.join(os.getcwd(), "reference_code", "uidai-leader-work", "backend"),
@@ -48,6 +50,25 @@ def _get_dualscale_model_cls():
         return DualScalePatchNet
     except ImportError as e:
         raise ImportError(f"[DualScale2D] Failed to import DualScalePatchNet from backend.pad.models: {e}") from e
+
+
+def _get_yolo_detector():
+    """Loads YOLO finger detector."""
+    try:
+        from ultralytics import YOLO
+    except ImportError as e:
+        raise ImportError(f"[DualScale2D] ultralytics package is required for YOLO finger crop: {e}") from e
+
+    possible_weights = [
+        os.path.join("models", "best-new.pt"),
+        os.path.join("backend", "best-new.pt"),
+        os.path.join("backend", "models", "best-new.pt"),
+        os.path.join("reference_code", "uidai-leader-work", "backend", "best-new.pt"),
+    ]
+    for w in possible_weights:
+        if os.path.exists(w):
+            return YOLO(w)
+    raise FileNotFoundError(f"[DualScale2D] YOLO detector weights 'best-new.pt' not found in: {possible_weights}")
 
 
 class DualScale2DAdapter(BaseModelAdapter):
@@ -68,14 +89,26 @@ class DualScale2DAdapter(BaseModelAdapter):
             score_direction=score_direction,
             extra_params=extra_params,
         )
+        params = self.extra_params or {}
+        self.patch_aggregation = str(params.get("patch_aggregation", "mean")).lower().strip()
+        self.finger_crop = str(params.get("finger_crop", "none")).lower().strip()
+
+        if self.patch_aggregation not in ("mean", "top2"):
+            raise ValueError(f"[DualScale2D] Invalid patch_aggregation '{self.patch_aggregation}'. Must be 'mean' or 'top2'.")
+        if self.finger_crop not in ("none", "yolo"):
+            raise ValueError(f"[DualScale2D] Invalid finger_crop '{self.finger_crop}'. Must be 'none' or 'yolo'.")
+
         self.preprocessing_config = {
             "patch_fine": [FINE_SIZE, FINE_SIZE],
             "patch_macro": [MACRO_SIZE, MACRO_SIZE],
             "num_patches": 5,
             "channels": 6,  # RGB + YCrCb
             "normalization": {"mean": 0.50, "std": 0.25},
+            "patch_aggregation": self.patch_aggregation,
+            "finger_crop": self.finger_crop,
         }
         self.model = None
+        self.detector = None
         self.torch_device = "cpu"
 
     def load(self, checkpoint_path: Optional[str] = None) -> None:
@@ -91,19 +124,29 @@ class DualScale2DAdapter(BaseModelAdapter):
         if not os.path.exists(checkpoint_path):
             raise FileNotFoundError(f"[DualScale2D] Checkpoint not found: '{checkpoint_path}'. Fallback simulation is strictly disabled.")
 
-        resolved_checkpoint = checkpoint_path
-
         try:
             ModelCls = _get_dualscale_model_cls()
             self.model = ModelCls(num_classes=3, in_channels=6).to(self.torch_device)
-            chk = torch.load(resolved_checkpoint, map_location=self.torch_device, weights_only=False)
+            chk = torch.load(checkpoint_path, map_location=self.torch_device, weights_only=False)
             state_dict = chk.get("model_state_dict", chk) if isinstance(chk, dict) else chk
             self.model.load_state_dict(state_dict)
             self.model.eval()
-            self._is_loaded = True
-            print(f"[DualScale2D] Successfully loaded DualScalePatchNet weights from {resolved_checkpoint} onto {self.torch_device}")
+            print(f"[DualScale2D] Successfully loaded DualScalePatchNet weights from {checkpoint_path} onto {self.torch_device}")
         except Exception as e:
-            raise RuntimeError(f"[DualScale2D] Failed to load DualScalePatchNet from '{resolved_checkpoint}': {str(e)}") from e
+            raise RuntimeError(f"[DualScale2D] Failed to load DualScalePatchNet from '{checkpoint_path}': {str(e)}") from e
+
+        # Load YOLO detector if finger_crop is enabled
+        if self.finger_crop == "yolo":
+            try:
+                self.detector = _get_yolo_detector()
+                print("[DualScale2D] Successfully loaded YOLO finger detector (best-new.pt)")
+            except Exception as e:
+                raise RuntimeError(
+                    f"[DualScale2D] Failed to load YOLO detector 'best-new.pt' for finger_crop=yolo: {e}. "
+                    f"Hidden fallbacks are strictly disabled."
+                ) from e
+
+        self._is_loaded = True
 
     def warmup(self, warmup_runs: int = 3) -> None:
         """Warms up GPU/CPU caches."""
@@ -121,13 +164,50 @@ class DualScale2DAdapter(BaseModelAdapter):
             pass
         self._warmup_done = True
 
-    def preprocess(self, sample: ManifestSample) -> Tuple[torch.Tensor, torch.Tensor]:
+    def detect_single_finger(self, im_bgr: np.ndarray) -> Tuple[np.ndarray, Tuple[int, int, int, int], float]:
         """
-        Exact KT Preprocessing from train_dualscale_patchnet.py:
-        1. Read BGR image
-        2. Convert to RGB and YCrCb, concatenate -> 6-channel
-        3. Extract 5 deterministic dual patches (Fine: 96x96, Macro: 160x160 -> resized to 96x96)
-        4. Normalize: (patch / 255.0 - 0.5) / 0.25
+        Detects and crops single finger using YOLO detector.
+        Exact logic from eval_new_screen_attacks.py.
+        """
+        if self.detector is None:
+            raise RuntimeError("[DualScale2D] YOLO detector is required for finger_crop='yolo' but is not loaded.")
+
+        best_b, best_c = None, 0.0
+        for sz in [512, 640, 800]:
+            try:
+                res = self.detector(im_bgr, imgsz=sz, conf=0.15, verbose=False)
+                boxes = res[0].boxes
+                if len(boxes) > 0:
+                    for b, c in zip(boxes.xyxy.cpu().numpy(), boxes.conf.cpu().numpy()):
+                        h, w = b[3] - b[1], b[2] - b[0]
+                        if h > 100 and w > 100 and c > best_c:
+                            best_c = float(c)
+                            best_b = b.astype(int)
+            except Exception:
+                pass
+
+        h_img, w_img = im_bgr.shape[:2]
+        if best_b is None:
+            return im_bgr, (0, 0, w_img, h_img), 0.0
+
+        x1, y1, x2, y2 = best_b
+        margin = 15
+        x1 = max(0, x1 - margin)
+        y1 = max(0, y1 - margin)
+        x2 = min(w_img, x2 + margin)
+        y2 = min(h_img, y2 + margin)
+        crop = im_bgr[y1:y2, x1:x2]
+        if crop.size == 0:
+            return im_bgr, (0, 0, w_img, h_img), 0.0
+        return crop, (x1, y1, x2, y2), best_c
+
+    def preprocess(self, sample: ManifestSample) -> Tuple[torch.Tensor, torch.Tensor, Dict[str, Any]]:
+        """
+        Preprocesses image for DualScalePatchNet:
+        1. If finger_crop == 'yolo', crops finger using detect_single_finger
+        2. Converts BGR to RGB and YCrCb, concatenates -> 6-channel
+        3. Extracts 5 deterministic dual patches (Fine: 96x96, Macro: 160x160 -> resized to 96x96)
+        4. Normalizes: (patch / 255.0 - 0.5) / 0.25
         """
         if not os.path.exists(sample.image_path):
             raise FileNotFoundError(f"Image not found: {sample.image_path}")
@@ -135,6 +215,12 @@ class DualScale2DAdapter(BaseModelAdapter):
         img_bgr = cv2.imread(sample.image_path)
         if img_bgr is None:
             raise ValueError(f"cv2.imread failed to read image: {sample.image_path}")
+
+        meta: Dict[str, Any] = {}
+        if self.finger_crop == "yolo":
+            img_bgr, bbox, conf = self.detect_single_finger(img_bgr)
+            meta["crop_bbox"] = list(bbox)
+            meta["yolo_conf"] = round(conf, 3)
 
         h, w = img_bgr.shape[:2]
         img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
@@ -174,7 +260,7 @@ class DualScale2DAdapter(BaseModelAdapter):
 
         batch_fine = torch.stack(fines).to(self.torch_device)
         batch_macro = torch.stack(macros).to(self.torch_device)
-        return batch_fine, batch_macro
+        return batch_fine, batch_macro, meta
 
     def predict(self, sample: ManifestSample) -> ModelInferenceResult:
         t_start = time.perf_counter()
@@ -190,7 +276,7 @@ class DualScale2DAdapter(BaseModelAdapter):
 
             # 1. Preprocessing
             t0 = time.perf_counter()
-            batch_fine, batch_macro = self.preprocess(sample)
+            batch_fine, batch_macro, crop_meta = self.preprocess(sample)
             prep_lat_ms = (time.perf_counter() - t0) * 1000.0
 
             # 2. Inference
@@ -199,15 +285,24 @@ class DualScale2DAdapter(BaseModelAdapter):
                 logits = self.model(batch_fine, batch_macro)
                 probs = F.softmax(logits, dim=1).cpu().numpy()
 
-                # 5-patch mean probabilities (Class 0: Live, 1: Screen replay, 2: Paper print)
-                mean_probs = probs.mean(axis=0)
-                p_live = float(mean_probs[0])
-                p_screen = float(mean_probs[1])
-                p_paper = float(mean_probs[2])
-
-                # Live score = 1 - (P(screen) + P(paper))
-                live_score = 1.0 - (p_screen + p_paper)
-                attack_score = p_screen + p_paper
+                # Patch aggregation: 'mean' vs 'top2'
+                if self.patch_aggregation == "top2":
+                    # Attack score per patch = P(screen) + P(paper)
+                    p_attack_patch = probs[:, 1] + probs[:, 2]
+                    top2_attack = float(np.sort(p_attack_patch)[-2:].mean())
+                    live_score = 1.0 - top2_attack
+                    attack_score = top2_attack
+                    p_live = live_score
+                    p_screen = float(np.sort(probs[:, 1])[-2:].mean())
+                    p_paper = float(np.sort(probs[:, 2])[-2:].mean())
+                else:
+                    # 5-patch mean probabilities (Class 0: Live, 1: Screen replay, 2: Paper print)
+                    mean_probs = probs.mean(axis=0)
+                    p_live = float(mean_probs[0])
+                    p_screen = float(mean_probs[1])
+                    p_paper = float(mean_probs[2])
+                    live_score = 1.0 - (p_screen + p_paper)
+                    attack_score = p_screen + p_paper
 
                 if self.score_direction == ScoreDirection.HIGHER_IS_ACCEPT:
                     raw_score = live_score
@@ -248,6 +343,7 @@ class DualScale2DAdapter(BaseModelAdapter):
                     "p_paper": round(p_paper, 6),
                     "p_attack": round(attack_score, 6),
                     "preprocessing": self.preprocessing_config,
+                    **crop_meta,
                 },
             )
 
