@@ -97,11 +97,15 @@ class RtkPadAdapter(BaseModelAdapter):
             score_direction=score_direction,
             extra_params=extra_params,
         )
+        params = self.extra_params or {}
+        self.slap_aggregation = str(params.get("slap_aggregation", "min")).lower().strip()
+        if self.slap_aggregation not in ("min", "mean"):
+            raise ValueError(f"[RTK-PAD] Invalid slap_aggregation '{self.slap_aggregation}'. Must be 'min' or 'mean'.")
         self.preprocessing_config = {
             "resize": [224, 224],
             "normalization": {"mean": list(MEAN), "std": list(STD)},
             "color_format": "RGB",
-            "slap_aggregation": "zero_tolerance_min_live",
+            "slap_aggregation": self.slap_aggregation,
         }
         self.model: Optional[torch.nn.Module] = None
         self.detector = None
@@ -271,11 +275,17 @@ class RtkPadAdapter(BaseModelAdapter):
                 torch.cuda.synchronize()
             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
 
-            # 3. Slap Fusion Rule: Zero-Tolerance / Weakest-Link (min live score)
+            # 3. Slap Fusion Rule (configurable via extra_params.slap_aggregation)
+            #    'min'  : weakest finger decides (min live score)
+            #    'mean' : average live score across detected fingers
             t2 = time.perf_counter()
             if finger_scores:
-                slap_live = min(f["p_live"] for f in finger_scores)
-                slap_attack = max(f["p_attack"] for f in finger_scores)
+                if self.slap_aggregation == "mean":
+                    slap_live = float(np.mean([f["p_live"] for f in finger_scores]))
+                    slap_attack = float(np.mean([f["p_attack"] for f in finger_scores]))
+                else:
+                    slap_live = min(f["p_live"] for f in finger_scores)
+                    slap_attack = max(f["p_attack"] for f in finger_scores)
             else:
                 slap_live = 0.0
                 slap_attack = 1.0
