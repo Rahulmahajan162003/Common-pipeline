@@ -1,0 +1,125 @@
+From 6a20409f0db5fd8eeec7fa860cdbf175a68a9af3 Mon Sep 17 00:00:00 2001
+From: Talha Asif Nagina <talhanagina111@gmail.com>
+Date: Mon, 12 Oct 2026 03:06:13 +0000
+Subject: [PATCH] Make slap aggregation configurable and remove stale DualScale
+ config
+
+- rtk_pad adapter now reads extra_params.slap_aggregation ('min' | 'mean');
+  unknown values raise an error. Default stays 'min'.
+- Remove configs/benchmark_dualpatchnet.yaml (old target_far method);
+  configs/benchmark_single_finger.yaml is the single DualScale config.
+---
+ benchmark_harness/adapters/rtk_pad.py | 18 ++++++++---
+ configs/benchmark_dualpatchnet.yaml   | 44 ---------------------------
+ configs/benchmark_rtk_pad.yaml        |  2 +-
+ 3 files changed, 15 insertions(+), 49 deletions(-)
+ delete mode 100644 configs/benchmark_dualpatchnet.yaml
+
+diff --git a/benchmark_harness/adapters/rtk_pad.py b/benchmark_harness/adapters/rtk_pad.py
+index efe9616..1ec358d 100644
+--- a/benchmark_harness/adapters/rtk_pad.py
++++ b/benchmark_harness/adapters/rtk_pad.py
+@@ -97,11 +97,15 @@ class RtkPadAdapter(BaseModelAdapter):
+             score_direction=score_direction,
+             extra_params=extra_params,
+         )
++        params = self.extra_params or {}
++        self.slap_aggregation = str(params.get("slap_aggregation", "min")).lower().strip()
++        if self.slap_aggregation not in ("min", "mean"):
++            raise ValueError(f"[RTK-PAD] Invalid slap_aggregation '{self.slap_aggregation}'. Must be 'min' or 'mean'.")
+         self.preprocessing_config = {
+             "resize": [224, 224],
+             "normalization": {"mean": list(MEAN), "std": list(STD)},
+             "color_format": "RGB",
+-            "slap_aggregation": "zero_tolerance_min_live",
++            "slap_aggregation": self.slap_aggregation,
+         }
+         self.model: Optional[torch.nn.Module] = None
+         self.detector = None
+@@ -271,11 +275,17 @@ class RtkPadAdapter(BaseModelAdapter):
+                 torch.cuda.synchronize()
+             infer_lat_ms = (time.perf_counter() - t1) * 1000.0
+ 
+-            # 3. Slap Fusion Rule: Zero-Tolerance / Weakest-Link (min live score)
++            # 3. Slap Fusion Rule (configurable via extra_params.slap_aggregation)
++            #    'min'  : weakest finger decides (min live score)
++            #    'mean' : average live score across detected fingers
+             t2 = time.perf_counter()
+             if finger_scores:
+-                slap_live = min(f["p_live"] for f in finger_scores)
+-                slap_attack = max(f["p_attack"] for f in finger_scores)
++                if self.slap_aggregation == "mean":
++                    slap_live = float(np.mean([f["p_live"] for f in finger_scores]))
++                    slap_attack = float(np.mean([f["p_attack"] for f in finger_scores]))
++                else:
++                    slap_live = min(f["p_live"] for f in finger_scores)
++                    slap_attack = max(f["p_attack"] for f in finger_scores)
+             else:
+                 slap_live = 0.0
+                 slap_attack = 1.0
+diff --git a/configs/benchmark_dualpatchnet.yaml b/configs/benchmark_dualpatchnet.yaml
+deleted file mode 100644
+index 2e814fb..0000000
+--- a/configs/benchmark_dualpatchnet.yaml
++++ /dev/null
+@@ -1,44 +0,0 @@
+-# YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
+-# Dedicated DualScalePatchNet Evaluation on pad_v0
+-
+-benchmark:
+-  name: dualpatchnet_evaluation
+-  dataset_version: pad_v0
+-  task_type: single_finger_authentication
+-  random_seed: 42
+-  description: "DualScalePatchNet Single-Finger Evaluation on pad_v0"
+-
+-data:
+-  manifest_path: datasets/manifests/pad_v0/pad_v0_single_finger.csv
+-  calibration_split_name: calibration
+-  test_split_name: test
+-  check_image_existence: true
+-  verify_hashes: true
+-  allow_missing_images: false
+-
+-evaluation:
+-  score_direction: higher_is_accept
+-  threshold_method: target_far
+-  target_far: 0.01       # Target FAR <= 1.0%
+-  target_frr: 0.05
+-  treat_error_as_reject: false
+-  threshold_sweep_steps: 100
+-
+-latency:
+-  warmup_runs: 3
+-  repetitions: 1
+-  thresholds_ms: [50.0, 100.0, 250.0, 500.0]
+-
+-models:
+-  - name: dual_scale_patchnet
+-    version: 1.0.0
+-    adapter: dualscale_2d
+-    checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
+-    device: cpu
+-
+-outputs:
+-  root: results
+-  export_plots: true
+-  generate_html: true
+-  export_fusion_table: true
+-  top_k_hard_cases: 15
+diff --git a/configs/benchmark_rtk_pad.yaml b/configs/benchmark_rtk_pad.yaml
+index 56a931a..675d025 100644
+--- a/configs/benchmark_rtk_pad.yaml
++++ b/configs/benchmark_rtk_pad.yaml
+@@ -35,7 +35,7 @@ models:
+     checkpoint_path: models/pad_rtk_global_local_best.pt
+     device: cpu
+     extra_params:
+-      slap_aggregation: min      # Configurable: 'min' (zero-tolerance weakest-link)
++      slap_aggregation: min      # 'min' (weakest finger decides) | 'mean'
+ 
+ outputs:
+   root: results
+-- 
+2.43.0
+
