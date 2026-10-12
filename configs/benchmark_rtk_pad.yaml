@@ -35,7 +35,7 @@ models:
     checkpoint_path: models/pad_rtk_global_local_best.pt
     device: cpu
     extra_params:
-      slap_aggregation: min      # Configurable: 'min' (zero-tolerance weakest-link)
+      slap_aggregation: min      # 'min' (weakest finger decides) | 'mean'
 
 outputs:
   root: results
