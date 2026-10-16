@@ -1,12 +1,14 @@
 # YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
-# Single-Finger DualScalePatchNet Evaluation on pad_v0
+# Single-Finger PAD - PRODUCTION model (ShuffleNetV2), same flow as the app:
+# finger detector crop (512, conf 0.10, margins 8% sides / 18% top / 8% bottom)
+# -> resize 224 -> one ShuffleNetV2 inference -> live if p_live >= 0.656550407409668
 
 benchmark:
-  name: single_finger_pad_v0_evaluation
+  name: single_finger_production_shufflenet
   dataset_version: pad_v0
   task_type: single_finger_authentication
   random_seed: 42
-  description: "DualScalePatchNet Single-Finger PAD Evaluation on pad_v0"
+  description: "Production single-finger PAD (ShuffleNetV2) on pad_v0"
 
 data:
   manifest_path: datasets/manifests/pad_v0/pad_v0_single_finger.csv
@@ -19,7 +21,7 @@ data:
 evaluation:
   score_direction: higher_is_accept
   threshold_method: manual
-  manual_threshold: 0.4500       # App production threshold (verdict: accepted if p_live >= 0.45)
+  manual_threshold: 0.656550407409668   # App production threshold (live_score >= threshold)
   treat_error_as_reject: false
   threshold_sweep_steps: 100
 
@@ -29,14 +31,18 @@ latency:
   thresholds_ms: [50.0, 100.0, 250.0, 500.0]
 
 models:
-  - name: dual_scale_patchnet
+  - name: shufflenet_v2_pad
     version: 1.0.0
-    adapter: dualscale_2d
-    checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
+    adapter: shufflenet_pad
+    checkpoint_path: models/pad_shufflenet_v2_unified.pt
     device: cpu
     extra_params:
-      patch_aggregation: mean    # Configurable: 'mean' | 'top2'
-      finger_crop: none          # Configurable: 'none' | 'yolo'
+      finger_crop: yolo          # 'yolo' (app) | 'none'
+      detector_imgsz: 512
+      detector_conf: 0.10
+      margin_side: 0.08
+      margin_top: 0.18
+      margin_bottom: 0.08
 
 outputs:
   root: results

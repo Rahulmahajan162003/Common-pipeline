@@ -19,7 +19,7 @@ data:
 evaluation:
   score_direction: higher_is_accept
   threshold_method: manual
-  manual_threshold: 0.50
+  manual_threshold: 0.50          # App production per-finger threshold
   treat_error_as_reject: false
   threshold_sweep_steps: 100
 
@@ -35,7 +35,13 @@ models:
     checkpoint_path: models/pad_rtk_global_local_best.pt
     device: cpu
     extra_params:
-      slap_aggregation: min      # 'min' (weakest finger decides) | 'mean'
+      slap_aggregation: app_rule # 'app_rule' (production) | 'min' | 'mean'
+      # app_rule settings (production app):
+      finger_threshold: 0.50     # must equal manual_threshold above
+      weak_finger_floor: 0.18    # one finger may pass if >= 0.18
+      required_fingers: 4
+      min_finger_conf: 0.12
+      finger_retries: true       # rot180 + 60% / 45% centre crops, keep best
 
 outputs:
   root: results

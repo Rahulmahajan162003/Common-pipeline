@@ -10,6 +10,7 @@ from .dualscale_2d import DualScale2DAdapter
 from .model_3d import Model3DAdapter
 from .flash_liveness import FlashLivenessAdapter
 from .rtk_pad import RtkPadAdapter
+from .shufflenet_pad import ShuffleNetPadAdapter
 from .litmas import LitMasAdapter
 from ..schemas import ScoreDirection
 
@@ -32,6 +33,8 @@ ADAPTER_REGISTRY: Dict[str, Type[BaseModelAdapter]] = {
     "rkt_pad": RtkPadAdapter,
     "rkt": RtkPadAdapter,
     "rktpad": RtkPadAdapter,
+    "shufflenet_pad": ShuffleNetPadAdapter,
+    "shufflenet": ShuffleNetPadAdapter,
     "litmas": LitMasAdapter,
     "litmas_moe": LitMasAdapter,
     "lit_mas": LitMasAdapter,

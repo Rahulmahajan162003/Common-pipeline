@@ -3,7 +3,11 @@ RTK-PAD (GlobalLocalRTKPAD) Presentation Attack Detection Adapter.
 Implements:
 1. Slap and single-finger detection using YOLO (best-new.pt)
 2. Global-Local Dual Attention scoring via GlobalLocalRTKPAD (pad_rtk_global_local_best.pt)
-3. Zero-Tolerance / Weakest-Link slap aggregation: slap_live = min(finger_live_scores)
+3. Configurable slap aggregation (extra_params.slap_aggregation):
+   - 'min'      : weakest finger decides
+   - 'mean'     : average of finger scores
+   - 'app_rule' : production app rule (exactly 4 fingers with detector conf >= 0.12,
+                  per-finger retries, one weak finger allowed if >= 0.18)
 """
 
 import os
@@ -99,14 +103,29 @@ class RtkPadAdapter(BaseModelAdapter):
         )
         params = self.extra_params or {}
         self.slap_aggregation = str(params.get("slap_aggregation", "min")).lower().strip()
-        if self.slap_aggregation not in ("min", "mean"):
-            raise ValueError(f"[RTK-PAD] Invalid slap_aggregation '{self.slap_aggregation}'. Must be 'min' or 'mean'.")
+        if self.slap_aggregation not in ("min", "mean", "app_rule"):
+            raise ValueError(f"[RTK-PAD] Invalid slap_aggregation '{self.slap_aggregation}'. Must be 'min', 'mean' or 'app_rule'.")
+        # App rule settings (production app, confirmed by the app developer)
+        self.finger_threshold = float(params.get("finger_threshold", 0.50))
+        self.weak_finger_floor = float(params.get("weak_finger_floor", 0.18))
+        self.required_fingers = int(params.get("required_fingers", 4))
+        self.min_finger_conf = float(params.get("min_finger_conf", 0.12))
+        self.finger_retries = bool(params.get("finger_retries", self.slap_aggregation == "app_rule"))
+        if not (0.0 <= self.weak_finger_floor < self.finger_threshold <= 1.0):
+            raise ValueError("[RTK-PAD] Need 0 <= weak_finger_floor < finger_threshold <= 1.")
         self.preprocessing_config = {
             "resize": [224, 224],
             "normalization": {"mean": list(MEAN), "std": list(STD)},
             "color_format": "RGB",
             "slap_aggregation": self.slap_aggregation,
         }
+        self.preprocessing_config.update({
+            "finger_retries": self.finger_retries,
+            "finger_threshold": self.finger_threshold,
+            "weak_finger_floor": self.weak_finger_floor,
+            "required_fingers": self.required_fingers,
+            "min_finger_conf": self.min_finger_conf,
+        })
         self.model: Optional[torch.nn.Module] = None
         self.detector = None
         self.torch_device = "cpu"
@@ -236,6 +255,51 @@ class RtkPadAdapter(BaseModelAdapter):
 
         return p_live, p_attack
 
+    def score_finger_with_retries(self, crop_bgr: np.ndarray) -> Tuple[float, float, int, str]:
+        """
+        App retry logic for one slap finger: score the upright crop; if it fails,
+        also try a 180-degree rotation and 60% / 45% centre crops, keeping the
+        highest live score. Returns (p_live, p_attack, evaluations, best_variant).
+        Note: the app's 'exposure-normalised' variant is not reproduced (method unknown).
+        """
+        p_live, p_attack = self.score_single_crop(crop_bgr)
+        best = (p_live, p_attack, "upright")
+        n = 1
+        if not self.finger_retries or p_live >= self.finger_threshold:
+            return best[0], best[1], n, best[2]
+        h, w = crop_bgr.shape[:2]
+        variants = [("rot180", cv2.rotate(crop_bgr, cv2.ROTATE_180))]
+        for frac in (0.60, 0.45):
+            ch, cw = max(1, int(round(h * frac))), max(1, int(round(w * frac)))
+            y0, x0 = (h - ch) // 2, (w - cw) // 2
+            variants.append((f"center{int(frac * 100)}", crop_bgr[y0:y0 + ch, x0:x0 + cw]))
+        for vname, v in variants:
+            pl, pa = self.score_single_crop(v)
+            n += 1
+            if pl > best[0]:
+                best = (pl, pa, vname)
+        return best[0], best[1], n, best[2]
+
+    def app_rule_score(self, finger_live_scores: List[float]) -> Tuple[float, bool, str]:
+        """
+        Encodes the app's slap pass/fail as one score so that
+        score >= finger_threshold  <=>  app passes the slap.
+        - all fingers >= T                          -> pass
+        - exactly one finger in [floor, T)          -> pass
+        - one finger < floor, or two or more < T    -> fail
+        score = min(second_lowest, T + (lowest - floor) * T / (T - floor))
+        """
+        T, floor = self.finger_threshold, self.weak_finger_floor
+        if len(finger_live_scores) != self.required_fingers:
+            return 0.0, False, f"needs exactly {self.required_fingers} fingers, got {len(finger_live_scores)}"
+        s = sorted(finger_live_scores)
+        lowest, second = s[0], s[1]
+        score = min(second, T + (lowest - floor) * T / (T - floor))
+        failed = [x for x in s if x < T]
+        app_pass = len(failed) == 0 or (len(failed) == 1 and failed[0] >= floor)
+        reason = "pass" if app_pass else ("finger below floor" if lowest < floor else "two or more fingers failed")
+        return float(score), bool(app_pass), reason
+
     def predict(self, sample: ManifestSample) -> ModelInferenceResult:
         t_start = time.perf_counter()
         prep_lat_ms = 0.0
@@ -256,18 +320,22 @@ class RtkPadAdapter(BaseModelAdapter):
                 raise ValueError(f"cv2.imread failed to read image: {sample.image_path}")
 
             finger_crops = self.detect_slap_fingers(img_bgr)
+            if self.slap_aggregation == "app_rule":
+                finger_crops = [fc for fc in finger_crops if fc[2] >= self.min_finger_conf]
             prep_lat_ms = (time.perf_counter() - t0) * 1000.0
 
             # 2. Inference on each finger crop
             t1 = time.perf_counter()
             finger_scores: List[Dict[str, float]] = []
             for idx, (crop, bbox, conf) in enumerate(finger_crops, start=1):
-                p_live, p_attack = self.score_single_crop(crop)
+                p_live, p_attack, n_evals, variant = self.score_finger_with_retries(crop)
                 finger_scores.append({
                     "finger_index": idx,
                     "yolo_conf": round(conf, 3),
                     "p_live": round(p_live, 6),
                     "p_attack": round(p_attack, 6),
+                    "evaluations": n_evals,
+                    "best_variant": variant,
                     "bbox": list(bbox),
                 })
 
@@ -279,7 +347,11 @@ class RtkPadAdapter(BaseModelAdapter):
             #    'min'  : weakest finger decides (min live score)
             #    'mean' : average live score across detected fingers
             t2 = time.perf_counter()
-            if finger_scores:
+            app_pass, app_reason = None, None
+            if self.slap_aggregation == "app_rule":
+                slap_live, app_pass, app_reason = self.app_rule_score([f["p_live"] for f in finger_scores])
+                slap_attack = 1.0 - slap_live
+            elif finger_scores:
                 if self.slap_aggregation == "mean":
                     slap_live = float(np.mean([f["p_live"] for f in finger_scores]))
                     slap_attack = float(np.mean([f["p_attack"] for f in finger_scores]))
@@ -321,6 +393,8 @@ class RtkPadAdapter(BaseModelAdapter):
                     "slap_live_score": round(slap_live, 6),
                     "slap_attack_score": round(slap_attack, 6),
                     "fingers_detected": len(finger_crops),
+                    "app_rule_pass": app_pass,
+                    "app_rule_reason": app_reason,
                     "finger_breakdown": finger_scores,
                     "preprocessing": self.preprocessing_config,
                 },

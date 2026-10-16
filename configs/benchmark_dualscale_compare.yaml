@@ -1,0 +1,46 @@
+# YellowSense UIDAI Contactless Fingerprint Benchmark Configuration
+# Single-Finger DualScalePatchNet - COMPARISON model (not in the production app)
+
+benchmark:
+  name: dualscale_compare_pad_v0
+  dataset_version: pad_v0
+  task_type: single_finger_authentication
+  random_seed: 42
+  description: "DualScalePatchNet comparison run on pad_v0 (production app uses ShuffleNetV2)"
+
+data:
+  manifest_path: datasets/manifests/pad_v0/pad_v0_single_finger.csv
+  calibration_split_name: calibration
+  test_split_name: test
+  check_image_existence: true
+  verify_hashes: true
+  allow_missing_images: false
+
+evaluation:
+  score_direction: higher_is_accept
+  threshold_method: manual
+  manual_threshold: 0.4500       # Provisional: DualScale is not in the app, so there is no production threshold
+  treat_error_as_reject: false
+  threshold_sweep_steps: 100
+
+latency:
+  warmup_runs: 3
+  repetitions: 1
+  thresholds_ms: [50.0, 100.0, 250.0, 500.0]
+
+models:
+  - name: dual_scale_patchnet
+    version: 1.0.0
+    adapter: dualscale_2d
+    checkpoint_path: backend/pad/weights/dual_scale_patchnet_best.pth
+    device: cpu
+    extra_params:
+      patch_aggregation: mean    # Configurable: 'mean' | 'top2'
+      finger_crop: none          # Configurable: 'none' | 'yolo'
+
+outputs:
+  root: results
+  export_plots: true
+  generate_html: true
+  export_fusion_table: true
+  top_k_hard_cases: 15
